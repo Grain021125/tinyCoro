@@ -129,19 +129,30 @@ public:
 
     inline auto get_engine() noexcept -> engine& { return m_engine; }
 
+    auto process_work() noexcept -> void;
+
+    auto poll_work() noexcept -> void;
+
+    auto empty_wait_task() noexcept -> bool;
+
     /**
      * @brief main logic of work thread
      *
      * @param token
      */
     [[CORO_TEST_USED(lab2b)]] auto run(stop_token token) noexcept -> void;
+    using stop_cb = std::function<void()>;
 
     // TODO[lab2b]: Add more function if you need
+    auto set_stop_cb(stop_cb cb) noexcept -> void { m_stop_cb = cb; }
 
 private:
     CORO_ALIGN engine   m_engine;
     unique_ptr<jthread> m_job;
     ctx_id              m_id;
+    atomic<size_t>      m_num_wait_task{0};
+
+    stop_cb m_stop_cb;
 
     // TODO[lab2b]: Add more member variables if you need
 };

@@ -22,13 +22,17 @@
 #include "coro/meta_info.hpp"
 #include "coro/uring_proxy.hpp"
 
+#define wake_by_task(val) (((val) & (engine::task_mask)) > 0)
+#define wake_by_io(val)   (((val) & (engine::io_mask)) > 0)
+#define wake_by_cqe(val)  (((val) & (engine::cqe_mask)) > 0)
+
 namespace coro
 {
 class context;
 };
 
 /**
- * @brief Welcome to tinycoro lab2a, in this part you will build the heart of tinycoro¡ª¡ªengine by
+ * @brief Welcome to tinycoro lab2a, in this part you will build the heart of tinycoroï¿½ï¿½ï¿½ï¿½engine by
  * modifing engine.hpp and engine.cpp, please ensure you have read the document of lab2a.
  *
  * @warning You should carefully consider whether each implementation should be thread-safe.
@@ -104,6 +108,8 @@ public:
      */
     [[CORO_TEST_USED(lab2a)]] [[CORO_DISCARD_HINT]] auto schedule() noexcept -> coroutine_handle<>;
 
+    auto wake_up(uint64_t val = engine::task_flag) noexcept -> void;
+
     /**
      * @brief submit one task handle to engine
      *
@@ -124,6 +130,8 @@ public:
      * @param cqe io_uring cqe entry
      */
     auto handle_cqe_entry(urcptr cqe) noexcept -> void;
+
+    auto do_io_submit() noexcept -> void;
 
     /**
      * @brief submit uring sqe and wait uring finish, then handle
@@ -168,8 +176,17 @@ public:
     // TODO[lab2a]: Add more function if you need
 
 private:
-    uint32_t    m_id;
-    uring_proxy m_upxy;
+    static constexpr uint64_t task_mask = {0xFFFFF00000000000};
+    static constexpr uint64_t io_mask   = (0x00000FFFFF000000);
+    static constexpr uint64_t cqe_mask  = (0x0000000000FFFFFF);
+
+    static constexpr uint64_t task_flag = ((uint64_t)1 << 44);
+    static constexpr uint64_t io_flag   = ((uint64_t)1 << 24);
+
+    uint32_t                  m_id;
+    uring_proxy               m_upxy;
+    size_t                    m_num_io_wait_submit{0};
+    size_t                    m_num_io_running{0};
 
     // store task handle
     mpmc_queue<coroutine_handle<>> m_task_queue; // You can replace it with another data structure
